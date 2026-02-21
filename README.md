@@ -161,10 +161,9 @@ For questions or feedback about this implementation:
 ## 🔗 Related Resources
 
 - [Samba Official Wiki](https://wiki.samba.org/)
-- [Samba Wiki - Active Directory](https://wiki.samba.org/index.php/Active_Directory)
 - [Samba AD DC HOWTO](https://wiki.samba.org/index.php/Setting_up_Samba_as_an_Active_Directory_Domain_Controller)
 - [Ubuntu Server Guide](https://ubuntu.com/server/docs)
-- [Active Directory Documentation (Microsoft)](https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/)
+- [Active Directory Documentation (Microsoft)](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/get-started/virtual-dc/active-directory-domain-services-overview)
 - [SSSD Documentation](https://sssd.io/)
 - [Ubuntu Server Guide - Samba](https://ubuntu.com/server/docs/samba-active-directory)
 ---
