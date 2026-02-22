@@ -113,6 +113,8 @@ network:
         - 192.168.1.1/24
 ```
 
+![Netplan configuration](images/sprint1/1.3_netplan.png)
+
 Apply and verify:
 ```bash
 sudo netplan apply
@@ -121,8 +123,6 @@ ip route
 ```
 
 > **Note:** The bridge IP and DNS forwarder depend on your environment. For a home lab, use your router IP as gateway and `8.8.8.8` as DNS forwarder.
-
-![Netplan configuration](images/sprint1/1.3_netplan.png)
 
 ### Step 5: Disable systemd-resolved
 
