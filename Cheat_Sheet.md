@@ -364,6 +364,11 @@ sudo rm -rf /var/lib/sss/db/*
 sudo systemctl start sssd
 ```
 
+### Restart GDM (fixes GUI login failures for domain users)
+```bash
+sudo systemctl restart gdm3
+```
+
 ### Fix DNS on Ubuntu Client (if resolv.conf reverts)
 ```bash
 echo "nameserver 192.168.1.1" | sudo tee /etc/resolv.conf
