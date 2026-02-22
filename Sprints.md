@@ -349,6 +349,7 @@ Expected output:
 OU=IT_Department,DC=lab05,DC=lan
 OU=HR_Department,DC=lab05,DC=lan
 OU=Students,DC=lab05,DC=lan
+OU=Finance_Department,DC=lab05,DC=lan
 OU=Domain Controllers,DC=lab05,DC=lan
 ```
 
@@ -401,10 +402,10 @@ sudo samba-tool user create vladimir 'P@ssw0rd2026!' \
 ```
 
 **Finance:**
-````bash
+```bash
 sudo samba-tool user create liudmila 'P@ssw0rd2026!' \
-  --userou="OU=HR_Department" --given-name=Liudmila --surname=Pavlichenko
-````
+  --userou="OU=Finance_Department" --given-name=Liudmila --surname=Pavlichenko
+```
 
 Verify:
 ```bash
