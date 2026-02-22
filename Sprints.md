@@ -51,13 +51,12 @@ sudo apt update && sudo apt upgrade -y
 sudo hostnamectl set-hostname ls05.lab05.lan
 hostname -f
 ```
+![Hostname set to ls05.lab05.lan](images/sprint1/1.1_hostname.png)
 
 Verify:
 ```bash
 hostnamectl
 ```
-
-![Hostname set to ls05.lab05.lan](images/sprint1/1.1_hostname.png)
 
 ### Step 3: Configure /etc/hosts
 
