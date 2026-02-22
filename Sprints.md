@@ -893,6 +893,8 @@ host -t A ls05.lab05.lan
 host -t SRV _ldap._tcp.lab05.lan
 ```
 
+![DNS forwarding verified between domains](images/sprint4/4.3.3_dns_forwarding.png)
+
 Both must resolve correctly before proceeding.
 
 ![DNS forwarding verified between domains](images/sprint4/4.3_dns_forwarding.png)
