@@ -65,8 +65,8 @@ sudo samba-tool group removemembers <group> <user>
 
 ```bash
 sudo samba-tool ou list
-sudo samba-tool ou create "OU=<Name>,DC=lab05,DC=lan"
-sudo samba-tool ou delete "OU=<Name>,DC=lab05,DC=lan"
+sudo samba-tool ou create "OU=<n>,DC=lab05,DC=lan"
+sudo samba-tool ou delete "OU=<n>,DC=lab05,DC=lan"
 
 # Create user directly in OU
 sudo samba-tool user create <user> '<pass>' \
@@ -77,8 +77,8 @@ sudo samba-tool user create <user> '<pass>' \
 
 ```bash
 sudo samba-tool computer list
-sudo samba-tool computer show <name>
-sudo samba-tool computer delete <name>
+sudo samba-tool computer show <n>
+sudo samba-tool computer delete <n>
 ```
 
 ## GPO Management
@@ -270,6 +270,162 @@ sudo crontab -l                  # List root crontab
 
 ---
 
+## AWS / Sprint 5
+
+### Instance IPs
+
+| Machine | Elastic IP (public) | Private IP (VPC) |
+|---------|---------------------|------------------|
+| Ubuntu Server (DC) | 54.173.102.89 | 10.0.1.229 |
+| Windows Server (Client) | 54.221.100.222 | 10.0.14.107 |
+
+> Private IPs are persistent across stop/start cycles. Elastic IPs are also fixed regardless of restarts.
+
+### SSH to Ubuntu Server
+
+```bash
+# From any terminal with the .pem file
+ssh -i ubuntu-server.pem ubuntu@54.173.102.89
+
+# Fix permissions error on Linux/Mac
+chmod 400 ubuntu-server.pem
+```
+
+### RDP to Windows Server (from Ubuntu/Linux)
+
+```bash
+# Install FreeRDP if not present
+sudo apt install freerdp2-x11
+
+# Connect
+xfreerdp /v:54.221.100.222 /u:Administrator /p:'Admin_2024!' /cert:ignore /dynamic-resolution /clipboard
+```
+
+### Useful PowerShell Commands (Windows Server)
+
+```powershell
+# Change Administrator password
+net user Administrator NewPassword!
+
+# Set Spanish keyboard layout
+Set-WinUserLanguageList -LanguageList es-ES -Force
+
+# Allow ICMP (ping) through Windows Firewall
+netsh advfirewall firewall add rule name="ICMP Allow" protocol=icmpv4:8,any dir=in action=allow
+
+# Verify connectivity with Ubuntu
+ping 10.0.1.229
+Test-NetConnection -ComputerName 10.0.1.229 -Port 22
+Test-NetConnection -ComputerName 10.0.1.229 -Port 389   # LDAP (fails until Samba installed)
+Test-NetConnection -ComputerName 10.0.1.229 -Port 445   # SMB (fails until Samba installed)
+
+# Show network configuration
+ipconfig /all
+
+# Flush DNS cache
+ipconfig /flushdns
+
+# Verify domain membership
+whoami
+systeminfo | findstr /i "domain"
+```
+
+### Prepare Ubuntu for Samba AD on AWS
+
+```bash
+# 1. Disable systemd-resolved (Samba needs port 53)
+sudo systemctl disable --now systemd-resolved
+sudo unlink /etc/resolv.conf
+sudo nano /etc/resolv.conf
+```
+
+Content for resolv.conf on AWS:
+```
+nameserver 127.0.0.1
+nameserver 8.8.8.8
+search lab05.lan
+```
+
+```bash
+# 2. Configure /etc/hosts
+sudo nano /etc/hosts
+```
+
+Content:
+```
+127.0.0.1 localhost
+10.0.1.229 ls05.lab05.lan ls05
+```
+
+```bash
+# 3. Install Samba (same as Sprint 1)
+sudo apt install -y acl attr samba samba-dsdb-modules samba-vfs-modules \
+  winbind libpam-winbind libnss-winbind libpam-krb5 krb5-config krb5-user \
+  dnsutils ldap-utils
+
+# 4. Stop default services
+sudo systemctl disable --now smbd nmbd winbind
+
+# 5. Provision the domain
+sudo rm -f /etc/samba/smb.conf
+sudo samba-tool domain provision --use-rfc2307 --interactive
+# Realm: LAB05.LAN | Domain: LAB05 | Role: dc | DNS: SAMBA_INTERNAL | Forwarder: 8.8.8.8
+
+# 6. Start the AD DC service
+sudo cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+sudo systemctl unmask samba-ad-dc
+sudo systemctl enable samba-ad-dc
+sudo systemctl start samba-ad-dc
+sudo systemctl status samba-ad-dc
+```
+
+### Join Windows Server to Domain
+
+```
+1. Set DNS on Windows network adapter:
+   Control Panel → Network → Ethernet → IPv4 → Properties
+   - Preferred DNS:  10.0.1.229
+   - Alternate DNS:  8.8.8.8
+
+2. Join the domain:
+   Win+R → sysdm.cpl → Computer Name → Change
+   - Select: Domain → lab05.lan
+   - Credentials: Administrator / Admin_21
+
+3. Restart Windows when prompted.
+
+4. Verify from cmd:
+   whoami
+   net user Administrator /domain
+```
+
+### Access Shared Folders from Windows
+
+```
+# In File Explorer address bar:
+\\ls05.lab05.lan\Public
+\\ls05.lab05.lan\HRDocs
+\\ls05.lab05.lan\FinanceDocs
+
+# Or by private IP:
+\\10.0.1.229\Public
+```
+
+### Connectivity Verification Between Instances
+
+```bash
+# From Ubuntu → Windows
+ping -c 4 10.0.14.107
+
+# From Windows → Ubuntu (PowerShell)
+ping 10.0.1.229
+Test-NetConnection -ComputerName 10.0.1.229 -Port 22
+Test-NetConnection -ComputerName 10.0.1.229 -Port 445
+Test-NetConnection -ComputerName 10.0.1.229 -Port 389
+```
+
+---
+
 ## Troubleshooting
 
 ### DNS Not Resolving
@@ -344,41 +500,25 @@ sudo nano /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
 # Add: network: {config: disabled}
 ```
 
-## Post-Reboot Fixes
+### Windows Cannot Find the Domain
 
-### Disable IPv6 (prevents Samba KDC bind errors)
-```bash
-# Temporary (until reboot)
-sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-
-# Permanent
-echo "net.ipv6.conf.all.disable_ipv6=1" | sudo tee -a /etc/sysctl.conf
-echo "net.ipv6.conf.default.disable_ipv6=1" | sudo tee -a /etc/sysctl.conf
+```
+1. Verify DNS points to Ubuntu: ipconfig /all → DNS must be 10.0.1.229
+2. Verify Samba is running: sudo systemctl status samba-ad-dc
+3. Flush Windows DNS cache: ipconfig /flushdns
+4. Test resolution: nslookup lab05.lan 10.0.1.229
 ```
 
-### Clear SSSD Cache (fixes stale login on domain clients)
+### RDP Connection Refused
+
 ```bash
-sudo systemctl stop sssd
-sudo rm -rf /var/lib/sss/db/*
-sudo systemctl start sssd
+# Verify Windows port 3389 is reachable
+nc -zv 54.221.100.222 3389
+
+# Verify Security Group has port 3389 open
+# AWS → EC2 → Security Groups → LAB05-SG → Inbound rules
 ```
 
-### Restart GDM (fixes GUI login failures for domain users)
-```bash
-sudo systemctl restart gdm3
-```
-
-### Fix DNS on Ubuntu Client (if resolv.conf reverts)
-```bash
-echo "nameserver 192.168.1.1" | sudo tee /etc/resolv.conf
-echo "search lab05.lan" | sudo tee -a /etc/resolv.conf
-```
-
-### Reapply Netplan (if interfaces lose IP after reboot)
-```bash
-sudo netplan apply
-```
 ---
 
 ## Credentials Reference
@@ -387,6 +527,8 @@ sudo netplan apply
 |---------|----------|----------|-------|
 | DC1 Linux | pablo | admin_21 | System user |
 | DC2 Linux | pablo | admin_21 | System user |
+| Ubuntu AWS | ubuntu | (key .pem) | SSH only |
+| Windows AWS | Administrator | Admin_2024! | RDP |
 | Domain Admin LAB05 | Administrator | Admin_21 | Never expires |
 | Domain Admin LAB06 | Administrator | Admin_21 | Never expires |
 | All domain users | alice, bob, etc. | P@ssw0rd2026! | 42-day expiry |
@@ -406,4 +548,4 @@ sudo netplan apply
 
 ---
 
-*Last Updated: February 21, 2026*
+*Last Updated: February 2026*
