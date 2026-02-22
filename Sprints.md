@@ -610,17 +610,39 @@ sudo nano /etc/samba/smb.conf
 ```
 
 ```ini
+# Global parameters
+[global]
+        dns forwarder = 192.168.1.2 8.8.8.8
+        netbios name = LS05
+        realm = LAB05.LAN
+        server role = active directory domain controller
+        workgroup = LAB05
+        idmap_ldb:use rfc2307 = yes
+
+[sysvol]
+        path = /var/lib/samba/sysvol
+        read only = No
+
+[netlogon]
+        path = /var/lib/samba/sysvol/lab05.lan/scripts
+        read only = No
+
 #===================== Share Definitions =====================
-
 [FinanceDocs]
+    # Description shown when browsing shares
     comment = Finance Department Documents
+    # Physical path on the server
     path = /mnt/data/shares/finance
+    # Who can access: Finance group + Domain Admins
     valid users = @Finance, @"Domain Admins"
+    # no = users can write, yes = read only
     read only = no
+    # Visible when listing shares
     browseable = yes
+    # New files get rw-rw---- permissions
     create mask = 0660
+    # New folders get rwxrwx--- permissions
     directory mask = 0770
-
 [HRDocs]
     comment = HR Department Documents
     path = /mnt/data/shares/hr
@@ -629,13 +651,15 @@ sudo nano /etc/samba/smb.conf
     browseable = yes
     create mask = 0660
     directory mask = 0770
-
 [Public]
     comment = Public Shared Documents (Read-Only)
     path = /mnt/data/shares/public
+    # All domain users can access
     valid users = @"Domain Users"
+    # Read only for everyone...
     read only = yes
     browseable = yes
+    # ...except Domain Admins who can write
     write list = @"Domain Admins"
 ```
 
