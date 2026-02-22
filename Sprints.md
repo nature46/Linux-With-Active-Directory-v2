@@ -1047,7 +1047,7 @@ xfreerdp /v:54.221.100.222 /u:Administrator /p:'YourPassword' /cert:ignore /dyna
 
 ```powershell
 # Change Administrator password to something memorable
-net user Administrator Admin_2024!
+net user Administrator admin_21
 
 # Set Spanish keyboard layout
 Set-WinUserLanguageList -LanguageList es-ES -Force
