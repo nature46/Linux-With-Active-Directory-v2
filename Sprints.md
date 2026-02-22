@@ -336,6 +336,7 @@ The locomotive freezes mid-screen when SIGSTOP is sent, then resumes exactly whe
 sudo samba-tool ou create "OU=IT_Department,DC=lab05,DC=lan"
 sudo samba-tool ou create "OU=HR_Department,DC=lab05,DC=lan"
 sudo samba-tool ou create "OU=Students,DC=lab05,DC=lan"
+sudo samba-tool ou create "OU=Finance_Department,DC=lab05,DC=lan"
 ```
 
 Verify:
@@ -356,10 +357,10 @@ OU=Domain Controllers,DC=lab05,DC=lan
 ### Step 2: Create Security Groups
 
 ```bash
-sudo samba-tool group add IT_Admins
-sudo samba-tool group add HR_Staff
-sudo samba-tool group add Students
-sudo samba-tool group add Finance
+sudo samba-tool group add IT_Admins --groupou="OU=IT_Department"
+sudo samba-tool group add HR_Staff --groupou="OU=HR_Department"
+sudo samba-tool group add Students --groupou="OU=Students"
+sudo samba-tool group add Finance --groupou="OU=Finance_Department"
 ```
 
 Verify:
