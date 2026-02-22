@@ -10,6 +10,7 @@
 - [Sprint 2: Users, Groups, OUs & GPOs](#sprint-2-users-groups-ous--gpos)
 - [Sprint 3: Shared Folders, ACLs & Automated Backup](#sprint-3-shared-folders-acls--automated-backup)
 - [Sprint 4: Forest Trust Between Domains](#sprint-4-forest-trust-between-domains)
+- [Sprint 5: AWS Cloud Deployment](#sprint-5-aws-cloud-deployment)
 - [Appendix A: Ubuntu Desktop Client](#appendix-a-ubuntu-desktop-client)
 - [Appendix B: Windows 11 Client](#appendix-b-windows-11-client)
 
@@ -629,19 +630,12 @@ sudo nano /etc/samba/smb.conf
 
 #===================== Share Definitions =====================
 [FinanceDocs]
-    # Description shown when browsing shares
     comment = Finance Department Documents
-    # Physical path on the server
     path = /mnt/data/shares/finance
-    # Who can access: Finance group + Domain Admins
     valid users = @Finance, @"Domain Admins"
-    # no = users can write, yes = read only
     read only = no
-    # Visible when listing shares
     browseable = yes
-    # New files get rw-rw---- permissions
     create mask = 0660
-    # New folders get rwxrwx--- permissions
     directory mask = 0770
 [HRDocs]
     comment = HR Department Documents
@@ -654,12 +648,9 @@ sudo nano /etc/samba/smb.conf
 [Public]
     comment = Public Shared Documents (Read-Only)
     path = /mnt/data/shares/public
-    # All domain users can access
     valid users = @"Domain Users"
-    # Read only for everyone...
     read only = yes
     browseable = yes
-    # ...except Domain Admins who can write
     write list = @"Domain Admins"
 ```
 
@@ -974,6 +965,223 @@ kdestroy
 
 ---
 
+## Sprint 5: AWS Cloud Deployment
+
+**Duration:** 2 sessions
+**Objective:** Deploy Ubuntu Server 24.04 as Samba 4 AD Domain Controller and Windows Server 2025 as a domain client on AWS EC2, with full connectivity verification.
+
+### Infrastructure Summary
+
+| Parameter | Ubuntu Server (DC) | Windows Server (Client) |
+|-----------|-------------------|------------------------|
+| **Instance type** | t3.small | t3.small |
+| **AMI** | Ubuntu Server 24.04 LTS | Windows Server 2025 Base |
+| **Elastic IP** | 54.173.102.89 | 54.221.100.222 |
+| **Private IP** | 10.0.1.229 | 10.0.14.107 |
+| **VPC** | LAB05-VPC (vpc-0f228f5e15f2bf4ae) | LAB05-VPC (vpc-0f228f5e15f2bf4ae) |
+| **Key pair** | ubuntu-server.pem | ubuntu-server.pem |
+
+> ⚠️ Private IPs (10.0.x.x) persist across stop/start cycles. Elastic IPs are fixed public IPs that also persist.
+
+### Step 1: Security Group Configuration
+
+Both instances share the **LAB05-SG** security group within the same VPC.
+
+| Port | Protocol | Source | Description |
+|------|----------|--------|-------------|
+| 22 | TCP | 0.0.0.0/0 | SSH |
+| 3389 | TCP | 0.0.0.0/0 | RDP |
+| 53 | TCP/UDP | 10.0.0.0/20 | DNS |
+| 88 | TCP/UDP | 10.0.0.0/20 | Kerberos |
+| 389 | TCP | 10.0.0.0/20 | LDAP |
+| 445 | TCP | 10.0.0.0/20 | SMB/CIFS |
+| 636 | TCP | 10.0.0.0/20 | LDAPS |
+| 3268 | TCP | 10.0.0.0/20 | Global Catalog |
+| 3269 | TCP | 10.0.0.0/20 | Global Catalog SSL |
+| All traffic | All | 10.0.0.0/20 | Internal VPC communication |
+
+AD ports are restricted to the internal VPC subnet for security. SSH and RDP are open from anywhere for exam access.
+
+![Security Group Inbound Rules](images/sprint5/5.firewall-inbound.png)
+
+### Step 2: Launch Instances in LAB05 VPC
+
+Both instances must be in the same VPC so they communicate via private IP. Under **Network settings** when launching each instance:
+
+- VPC: `vpc-0f228f5e15f2bf4ae (LAB05-VPC-vpc)`
+- Subnet: `LAB05-VPC-subnet-public1-us-east-1a`
+- Auto-assign public IP: **Enable**
+- Security group: **LAB05-SG**
+
+![VPC and Security Group selection](images/sprint5/5.2vpc-lab05.png)
+
+### Step 3: Assign Elastic IPs
+
+Elastic IPs prevent public IP changes on instance restart.
+
+**EC2 → Elastic IPs → Allocate Elastic IP** (repeat twice, label them `elastica-ubuntu` and `elastica-windows`), then associate each to its instance.
+
+![Elastic IPs assigned](images/sprint5/5.3elastic-ips.png)
+
+### Step 4: Get Windows Administrator Password
+
+**EC2 → Instances → windows-server → Actions → Security → Get Windows Password**
+
+Upload `ubuntu-server.pem` → click **Decrypt Password** → save the password securely.
+
+![Windows password decryption](images/sprint5/5.4password-windows.png)
+
+### Step 5: Configure Windows Server
+
+**Connect via RDP** from a Linux machine:
+
+```bash
+# Install FreeRDP if not present
+sudo apt install freerdp2-x11
+
+# Connect
+xfreerdp /v:54.221.100.222 /u:Administrator /p:'YourPassword' /cert:ignore /dynamic-resolution /clipboard
+```
+
+**Change password and set Spanish keyboard** (from PowerShell inside RDP):
+
+```powershell
+# Change Administrator password to something memorable
+net user Administrator Admin_2024!
+
+# Set Spanish keyboard layout
+Set-WinUserLanguageList -LanguageList es-ES -Force
+```
+
+![Password and keyboard configuration](images/sprint5/5.5change-password-and-keyboard.png)
+
+**Allow ICMP (ping) through Windows Firewall:**
+
+```powershell
+netsh advfirewall firewall add rule name="ICMP Allow" protocol=icmpv4:8,any dir=in action=allow
+```
+
+![Ping allowed on Windows firewall](images/sprint5/5.7permit-ping-on-windows.png)
+
+### Step 6: SSH into Ubuntu Server
+
+```bash
+ssh -i ubuntu-server.pem ubuntu@54.173.102.89
+```
+
+Update the system:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+![SSH connection to Ubuntu Server](images/sprint5/5.6ssh-to-ubuntu.png)
+
+### Step 7: Connectivity Verification
+
+**Ubuntu → Windows:**
+
+```bash
+ping -c 4 10.0.14.107
+```
+
+![Connectivity from Ubuntu to Windows](images/sprint5/5.8connectivity-ubuntu-to-windows.png)
+
+**Windows → Ubuntu** (PowerShell):
+
+```powershell
+ping 10.0.1.229
+
+Test-NetConnection -ComputerName 10.0.1.229 -Port 22
+
+# This will fail until Samba is installed — expected
+Test-NetConnection -ComputerName 10.0.1.229 -Port 389
+```
+
+![Connectivity from Windows to Ubuntu](images/sprint5/5.9connectivity-windows-to-ubuntu.png)
+
+### Step 8: Install Samba AD on Ubuntu Server (Exam Day)
+
+AWS manages networking via DHCP, so no Netplan changes are needed. Key differences from Sprint 1:
+
+**Disable systemd-resolved:**
+```bash
+sudo systemctl disable --now systemd-resolved
+sudo unlink /etc/resolv.conf
+sudo nano /etc/resolv.conf
+```
+Content:
+```
+nameserver 127.0.0.1
+nameserver 8.8.8.8
+search lab05.lan
+```
+
+**Configure /etc/hosts:**
+```bash
+sudo nano /etc/hosts
+```
+Content:
+```
+127.0.0.1 localhost
+10.0.1.229 ls05.lab05.lan ls05
+```
+
+**Install Samba** (same as Sprint 1):
+```bash
+sudo apt install -y acl attr samba samba-dsdb-modules samba-vfs-modules \
+  winbind libpam-winbind libnss-winbind libpam-krb5 krb5-config krb5-user \
+  dnsutils ldap-utils
+```
+
+**Provision the domain:**
+```bash
+sudo samba-tool domain provision --use-rfc2307 --interactive
+# Realm: LAB05.LAN, Domain: LAB05, DNS: SAMBA_INTERNAL, forwarder: 8.8.8.8
+```
+
+### Step 9: Join Windows Server to Domain (Exam Day)
+
+**1. Set DNS on Windows network adapter to point to Ubuntu:**
+
+Control Panel → Network and Sharing Center → Change adapter settings → Ethernet → Properties → IPv4
+
+- **Preferred DNS:** `10.0.1.229`
+- **Alternate DNS:** `8.8.8.8`
+
+**2. Join the domain:**
+
+System Properties → Change settings → Change → Domain → `lab05.lan`
+
+Credentials: `Administrator` / `Admin_21` → Restart.
+
+### Step 10: Verify Shared Folders from Windows (Exam Day)
+
+After restarting and logging in with a domain account, open File Explorer and navigate to:
+
+```
+\\ls05.lab05.lan\Public
+\\10.0.1.229\Public
+```
+
+### Sprint 5 Summary
+
+| Task | Status |
+|------|--------|
+| Ubuntu Server EC2 launched (LAB05-VPC) | ✅ |
+| Windows Server EC2 launched (LAB05-VPC) | ✅ |
+| LAB05-SG security group configured | ✅ |
+| Elastic IPs assigned (persistent) | ✅ |
+| RDP from local machine to Windows | ✅ |
+| SSH from local machine to Ubuntu | ✅ |
+| Bidirectional connectivity verified | ✅ |
+| Windows password + Spanish keyboard | ✅ |
+| Samba AD installation | ⏳ Exam day |
+| Windows joined to domain | ⏳ Exam day |
+| Shared folders verified from Windows | ⏳ Exam day |
+
+---
+
 ## Appendix A: Ubuntu Desktop Client
 
 **Hostname:** lslc
@@ -1197,10 +1405,10 @@ Available shares appear: FinanceDocs, HRDocs, Public (visibility depends on grou
 | Field | Value |
 |-------|-------|
 | **Project** | LAB05 - Samba 4 Active Directory |
-| **Version** | 3.0 |
-| **Last Updated** | February 21, 2026 |
+| **Version** | 4.0 |
+| **Last Updated** | February 2026 |
 | **Environment** | Laboratory / Testing |
-| **Total Duration** | ~29 hours |
+| **Total Duration** | ~31 hours |
 
 ---
 
