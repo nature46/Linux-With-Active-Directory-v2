@@ -129,6 +129,7 @@ ip route
 
 ```bash
 # Stop and disable systemd-resolved
+sudo systemctl stop systemd-resolved
 sudo systemctl disable --now systemd-resolved
 
 # Remove symbolic link
