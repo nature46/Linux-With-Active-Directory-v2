@@ -106,7 +106,7 @@ Enterprise Active Directory deployment using Samba 4 on Ubuntu Server 24.04, fea
 | **Sprint 2** | Users, Groups, OUs & GPOs | On-premises | ✅ Complete |
 | **Sprint 3** | Shared Folders, ACLs & Cron Backup | On-premises | ✅ Complete |
 | **Sprint 4** | Forest Trust Between Domains | On-premises | ✅ Complete |
-| **Sprint 5** | AWS EC2 Cloud Deployment | AWS | 🔄 In Progress |
+| **Sprint 5** | AWS EC2 Cloud Deployment | AWS | ✅ Complete |
 | **Appendix A** | Ubuntu Desktop Client Join | On-premises | ✅ Complete |
 | **Appendix B** | Windows 11 Client Join | On-premises | ✅ Complete |
 
@@ -210,7 +210,7 @@ This is an educational project. Contributions, suggestions, and improvements are
 
 ---
 
-**Project Status**: 🔄 Sprint 5 In Progress
+**Project Status**: ✅ Complete 
 
 ## License
 
