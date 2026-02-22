@@ -344,6 +344,36 @@ sudo nano /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
 # Add: network: {config: disabled}
 ```
 
+## Post-Reboot Fixes
+
+### Disable IPv6 (prevents Samba KDC bind errors)
+```bash
+# Temporary (until reboot)
+sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+
+# Permanent
+echo "net.ipv6.conf.all.disable_ipv6=1" | sudo tee -a /etc/sysctl.conf
+echo "net.ipv6.conf.default.disable_ipv6=1" | sudo tee -a /etc/sysctl.conf
+```
+
+### Clear SSSD Cache (fixes stale login on domain clients)
+```bash
+sudo systemctl stop sssd
+sudo rm -rf /var/lib/sss/db/*
+sudo systemctl start sssd
+```
+
+### Fix DNS on Ubuntu Client (if resolv.conf reverts)
+```bash
+echo "nameserver 192.168.1.1" | sudo tee /etc/resolv.conf
+echo "search lab05.lan" | sudo tee -a /etc/resolv.conf
+```
+
+### Reapply Netplan (if interfaces lose IP after reboot)
+```bash
+sudo netplan apply
+```
 ---
 
 ## Credentials Reference
