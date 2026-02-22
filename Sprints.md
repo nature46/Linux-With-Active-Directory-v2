@@ -377,30 +377,34 @@ All users are created with a password that meets the domain policy (12+ characte
 **Students:**
 ```bash
 sudo samba-tool user create alice 'P@ssw0rd2026!' \
-  --given-name=Alice --surname=Wonderland
+  --userou="OU=Students" --given-name=Alice --surname=Wonderland
 sudo samba-tool user create bob 'P@ssw0rd2026!' \
-  --given-name=Bob --surname=Marley
+  --userou="OU=Students" --given-name=Bob --surname=Marley
 sudo samba-tool user create charlie 'P@ssw0rd2026!' \
-  --given-name=Charlie --surname=Sheen
+  --userou="OU=Students" --given-name=Charlie --surname=Sheen
 ```
 
 **IT Admins:**
 ```bash
 sudo samba-tool user create iosif 'P@ssw0rd2026!' \
-  --given-name=Iosif --surname=Stalin
+  --userou="OU=IT_Department" --given-name=Iosif --surname=Stalin
 sudo samba-tool user create karl 'P@ssw0rd2026!' \
-  --given-name=Karl --surname=Marx
+  --userou="OU=IT_Department" --given-name=Karl --surname=Marx
 sudo samba-tool user create lenin 'P@ssw0rd2026!' \
-  --given-name=Vladimir --surname=Lenin
+  --userou="OU=IT_Department" --given-name=Vladimir --surname=Lenin
 ```
 
 **HR Staff:**
 ```bash
 sudo samba-tool user create vladimir 'P@ssw0rd2026!' \
-  --given-name=Vladimir --surname=Malakovsky
-sudo samba-tool user create liudmila 'P@ssw0rd2026!' \
-  --given-name=Liudmila --surname=Pavlichenko
+  --userou="OU=HR_Department" --given-name=Vladimir --surname=Malakovsky
 ```
+
+**Finance:**
+````bash
+sudo samba-tool user create liudmila 'P@ssw0rd2026!' \
+  --userou="OU=HR_Department" --given-name=Liudmila --surname=Pavlichenko
+````
 
 Verify:
 ```bash
