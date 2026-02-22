@@ -826,6 +826,8 @@ sudo systemctl enable samba-ad-dc
 sudo systemctl start samba-ad-dc
 ```
 
+![DC2 Samba provisioned and running](images/sprint4/4.2_dc2_samba.png)
+
 Verify:
 ```bash
 sudo samba-tool domain level show
@@ -834,8 +836,6 @@ host -t A ls06.lab06.lan
 ```
 
 ![DC2 network and hostname configuration](images/sprint4/4.1_dc2_network.png)
-
-![DC2 Samba provisioned and running](images/sprint4/4.2_dc2_samba.png)
 
 ### Step 2: Configure DNS Forwarding
 
