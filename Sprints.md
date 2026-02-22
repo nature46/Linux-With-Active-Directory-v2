@@ -413,7 +413,8 @@ sudo samba-tool user list
 ```bash
 sudo samba-tool group addmembers Students alice,bob,charlie
 sudo samba-tool group addmembers IT_Admins iosif,karl,lenin
-sudo samba-tool group addmembers HR_Staff vladimir,liudmila
+sudo samba-tool group addmembers HR_Staff vladimir
+sudo samba-tool group addmembers Finance liudmila
 ```
 
 > **Note:** Users are separated by commas with no spaces.
