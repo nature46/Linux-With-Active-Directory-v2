@@ -909,6 +909,8 @@ sudo samba-tool domain trust create lab06.lan \
 
 Password: `Admin_21`
 
+![Trust created successfully](images/sprint4/4.4_trust_create.png)
+
 ### Step 4: Verify Trust
 
 ```bash
@@ -924,8 +926,6 @@ sudo samba-tool domain trust validate lab06.lan
 
 > **Note:** A netlogon error during validation is normal in Samba 4. The important lines are:
 > `OK: LocalValidation: DC[\\ls06.lab06.lan] CONNECTION[WERR_OK] TRUST[WERR_OK]`
-
-![Trust created successfully](images/sprint4/4.4_trust_create.png)
 
 ![Trust validated](images/sprint4/4.5_trust_verify.png)
 
