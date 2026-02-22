@@ -130,7 +130,7 @@ ip route
 ```bash
 # Stop and disable systemd-resolved
 sudo systemctl stop systemd-resolved
-sudo systemctl disable --now systemd-resolved
+sudo systemctl disable systemd-resolved
 
 # Remove symbolic link
 sudo unlink /etc/resolv.conf
