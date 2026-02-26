@@ -977,6 +977,7 @@ kdestroy
 ## Sprint 5: AWS Cloud Deployment
 
 **Duration:** 2 sessions
+
 **Objective:** Deploy Ubuntu Server 24.04 as Samba 4 AD Domain Controller and Windows Server 2025 as a domain client on AWS EC2, with full connectivity verification.
 
 ### Infrastructure Summary
