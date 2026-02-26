@@ -1008,6 +1008,7 @@ Both instances share the **LAB05-SG** security group within the same VPC.
 | 636 | TCP | 10.0.0.0/20 | LDAPS |
 | 3268 | TCP | 10.0.0.0/20 | Global Catalog |
 | 3269 | TCP | 10.0.0.0/20 | Global Catalog SSL |
+| 3289 | RDP | 0.0.0.0/0 | Remote Desktop |
 | All traffic | All | 10.0.0.0/20 | Internal VPC communication |
 
 AD ports are restricted to the internal VPC subnet for security. SSH and RDP are open from anywhere for exam access.
