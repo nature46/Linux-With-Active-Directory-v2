@@ -1345,8 +1345,6 @@ Add-Computer -DomainName cloud05.city -Credential CLOUD05\administrator -Restart
 
 Password: `Admin_21`
 
-![Windows domain join](images/sprint5/5.18_domain_join.png)
-
 ### Step 16: Verify Domain Join from Windows
 
 After restart, connect via RDP with domain credentials:
