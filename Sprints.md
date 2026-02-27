@@ -1375,8 +1375,6 @@ nltest /dsgetdc:cloud05.city
 # Expected: DC: \\bespin05.cloud05.city
 ```
 
-![Domain join verified](images/sprint5/5.19_join_verify.png)
-
 ### Step 17: Verify Shared Folder Permissions from Windows
 
 ```powershell
