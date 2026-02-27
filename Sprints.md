@@ -977,8 +977,35 @@ kdestroy
 ## Sprint 5: AWS Cloud Deployment
 
 **Duration:** 2 sessions
+**Objective:** Deploy Ubuntu Server 24.04 as Samba 4 AD Domain Controller (`cloud05.city`) and Windows Server 2025 as a domain client on AWS EC2, with shared folders and ACL verification.
 
-**Objective:** Deploy Ubuntu Server 24.04 as Samba 4 AD Domain Controller and Windows Server 2025 as a domain client on AWS EC2, with full connectivity verification.
+### Cloud Architecture
+
+```
+                    ┌─────────────────────────────────┐
+                    │      AWS Cloud (us-east-1)       │
+                    │      VPC: LAB05-VPC              │
+                    │      CIDR: 10.0.0.0/16           │
+                    │                                  │
+                    │  ┌───────────┐  ┌─────────────┐  │
+                    │  │ Ubuntu    │  │ Windows     │  │
+                    │  │ Server    │  │ Server 2025 │  │
+                    │  │ (DC)      │  │ (Client)    │  │
+                    │  │ t3.small  │  │ t3.small    │  │
+                    │  │ .1.229    │  │ .14.107     │  │
+                    │  └─────┬─────┘  └──────┬──────┘  │
+                    │        │               │         │
+                    │  ┌─────┴───────────────┴─────┐   │
+                    │  │    LAB05-SG (All traffic)  │   │
+                    │  └───────────────────────────┘   │
+                    └─────────────────────────────────┘
+                          │                 │
+                   EIP: 54.173.102.89  EIP: 54.221.100.222
+                          │                 │
+                    ┌─────┴─────────────────┴─────┐
+                    │   SSH (22) / RDP (3389)      │
+                    └─────────────────────────────┘
+```
 
 ### Infrastructure Summary
 
@@ -988,49 +1015,54 @@ kdestroy
 | **AMI** | Ubuntu Server 24.04 LTS | Windows Server 2025 Base |
 | **Elastic IP** | 54.173.102.89 | 54.221.100.222 |
 | **Private IP** | 10.0.1.229 | 10.0.14.107 |
-| **VPC** | LAB05-VPC (vpc-0f228f5e15f2bf4ae) | LAB05-VPC (vpc-0f228f5e15f2bf4ae) |
+| **VPC** | LAB05-VPC | LAB05-VPC |
+| **Security Group** | LAB05-SG | LAB05-SG |
 | **Key pair** | ubuntu-server.pem | ubuntu-server.pem |
 
-> ⚠️ Private IPs (10.0.x.x) persist across stop/start cycles. Elastic IPs are fixed public IPs that also persist.
+### Domain Information
+
+| Parameter | Value |
+|-----------|-------|
+| **Hostname** | bespin05.cloud05.city |
+| **Domain** | cloud05.city |
+| **Realm** | CLOUD05.CITY |
+| **NetBIOS** | CLOUD05 |
+| **DC Private IP** | 10.0.1.229 |
+| **DNS forwarder** | 8.8.8.8 |
+| **Admin password** | Admin_21 |
+
+> ⚠️ Private IPs (10.0.x.x) persist across stop/start cycles. Elastic IPs are fixed public IPs that also persist. Both instances are in the same VPC and communicate via private IP despite being in different subnets.
 
 ### Step 1: Security Group Configuration
 
-Both instances share the **LAB05-SG** security group within the same VPC.
+Both instances share the **LAB05-SG** security group within the same VPC. For a lab environment, the simplest approach is to allow all traffic within the VPC:
 
-| Port | Protocol | Source | Description |
-|------|----------|--------|-------------|
-| 22 | TCP | 0.0.0.0/0 | SSH |
-| 3389 | TCP | 0.0.0.0/0 | RDP |
-| 53 | TCP/UDP | 10.0.0.0/20 | DNS |
-| 88 | TCP/UDP | 10.0.0.0/20 | Kerberos |
-| 389 | TCP | 10.0.0.0/20 | LDAP |
-| 445 | TCP | 10.0.0.0/20 | SMB/CIFS |
-| 636 | TCP | 10.0.0.0/20 | LDAPS |
-| 3268 | TCP | 10.0.0.0/20 | Global Catalog |
-| 3269 | TCP | 10.0.0.0/20 | Global Catalog SSL |
-| 3289 | RDP | 0.0.0.0/0 | Remote Desktop |
-| All traffic | All | 10.0.0.0/20 | Internal VPC communication |
+| Rule | Protocol | Port | Source | Description |
+|------|----------|------|--------|-------------|
+| SSH | TCP | 22 | 0.0.0.0/0 | Remote access |
+| RDP | TCP | 3389 | 0.0.0.0/0 | Remote Desktop |
+| All traffic | All | All | 10.0.0.0/16 | Internal VPC |
 
-AD ports are restricted to the internal VPC subnet for security. SSH and RDP are open from anywhere for exam access.
+> **Note:** In production, restrict AD ports individually (53, 88, 135, 389, 445, 636, 3268-3269). For exam purposes, "All traffic" from the VPC CIDR is sufficient and avoids troubleshooting firewall issues.
 
 ![Security Group Inbound Rules](images/sprint5/5.firewall-inbound.png)
 
 ### Step 2: Launch Instances in LAB05 VPC
 
-Both instances must be in the same VPC so they communicate via private IP. Under **Network settings** when launching each instance:
+Both instances must be in the same VPC. Under **Network settings** when launching each instance:
 
-- VPC: `vpc-0f228f5e15f2bf4ae (LAB05-VPC-vpc)`
+- VPC: `LAB05-VPC`
 - Subnet: `LAB05-VPC-subnet-public1-us-east-1a`
 - Auto-assign public IP: **Enable**
 - Security group: **LAB05-SG**
 
-![VPC and Security Group selection](images/sprint5/5.2vpc-lab05.png)
+![VPC and instance configuration](images/sprint5/5.2vpc-lab05.png)
 
 ### Step 3: Assign Elastic IPs
 
 Elastic IPs prevent public IP changes on instance restart.
 
-**EC2 → Elastic IPs → Allocate Elastic IP** (repeat twice, label them `elastica-ubuntu` and `elastica-windows`), then associate each to its instance.
+**EC2 → Elastic IPs → Allocate Elastic IP** (repeat twice), then associate each to its instance.
 
 ![Elastic IPs assigned](images/sprint5/5.3elastic-ips.png)
 
@@ -1042,32 +1074,30 @@ Upload `ubuntu-server.pem` → click **Decrypt Password** → save the password 
 
 ![Windows password decryption](images/sprint5/5.4password-windows.png)
 
-### Step 5: Configure Windows Server
+### Step 5: Connect and Configure Windows Server
 
-**Connect via RDP** from a Linux machine:
-
+**From Linux (xfreerdp):**
 ```bash
-# Install FreeRDP if not present
 sudo apt install freerdp2-x11
-
-# Connect
-xfreerdp /v:54.221.100.222 /u:Administrator /p:'YourPassword' /cert:ignore /dynamic-resolution /clipboard
+xfreerdp /v:54.221.100.222 /u:Administrator /p:'DecryptedPassword' /cert:ignore /dynamic-resolution /clipboard
 ```
 
-**Change password and set Spanish keyboard** (from PowerShell inside RDP):
-
+**From Windows (mstsc):**
 ```powershell
-# Change Administrator password to something memorable
-net user Administrator admin_21
+mstsc /v:54.221.100.222 /w:1024 /h:768
+```
 
-# Set Spanish keyboard layout
+> Use `/prompt` to force credential prompt: `mstsc /v:54.221.100.222 /w:1024 /h:768 /prompt`
+
+**Change password and set Spanish keyboard** (PowerShell inside RDP):
+```powershell
+net user Administrator admin_21
 Set-WinUserLanguageList -LanguageList es-ES -Force
 ```
 
 ![Password and keyboard configuration](images/sprint5/5.5change-password-and-keyboard.png)
 
 **Allow ICMP (ping) through Windows Firewall:**
-
 ```powershell
 netsh advfirewall firewall add rule name="ICMP Allow" protocol=icmpv4:8,any dir=in action=allow
 ```
@@ -1081,7 +1111,6 @@ ssh -i ubuntu-server.pem ubuntu@54.173.102.89
 ```
 
 Update the system:
-
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
@@ -1091,7 +1120,6 @@ sudo apt update && sudo apt upgrade -y
 ### Step 7: Connectivity Verification
 
 **Ubuntu → Windows:**
-
 ```bash
 ping -c 4 10.0.14.107
 ```
@@ -1099,97 +1127,298 @@ ping -c 4 10.0.14.107
 ![Connectivity from Ubuntu to Windows](images/sprint5/5.8connectivity-ubuntu-to-windows.png)
 
 **Windows → Ubuntu** (PowerShell):
-
 ```powershell
 ping 10.0.1.229
-
 Test-NetConnection -ComputerName 10.0.1.229 -Port 22
-
-# This will fail until Samba is installed — expected
-Test-NetConnection -ComputerName 10.0.1.229 -Port 389
 ```
 
 ![Connectivity from Windows to Ubuntu](images/sprint5/5.9connectivity-windows-to-ubuntu.png)
 
-### Step 8: Install Samba AD on Ubuntu Server (Exam Day)
+### Step 8: Configure Hostname and DNS
 
-AWS manages networking via DHCP, so no Netplan changes are needed. Key differences from Sprint 1:
+> ⚠️ **Key difference from on-premises:** AWS manages networking via DHCP. Do NOT modify Netplan or you will lose connectivity.
 
-**Disable systemd-resolved:**
+**Set hostname:**
 ```bash
-sudo systemctl disable --now systemd-resolved
-sudo unlink /etc/resolv.conf
-sudo nano /etc/resolv.conf
-```
-Content:
-```
-nameserver 127.0.0.1
-nameserver 8.8.8.8
-search lab05.lan
+sudo hostnamectl set-hostname bespin05.cloud05.city
 ```
 
 **Configure /etc/hosts:**
 ```bash
 sudo nano /etc/hosts
 ```
+
 Content:
 ```
 127.0.0.1 localhost
-10.0.1.229 ls05.lab05.lan ls05
+10.0.1.229 bespin05.cloud05.city bespin05
 ```
 
-**Install Samba** (same as Sprint 1):
+Verify:
+```bash
+hostname -f
+# Expected: bespin05.cloud05.city
+```
+
+![Hostname and hosts configured](images/sprint5/5.10_hostname.png)
+
+### Step 9: Disable systemd-resolved
+
+```bash
+sudo systemctl disable --now systemd-resolved
+sudo unlink /etc/resolv.conf
+sudo nano /etc/resolv.conf
+```
+
+Content:
+```
+nameserver 127.0.0.1
+nameserver 8.8.8.8
+search cloud05.city
+```
+
+Verify port 53 is free:
+```bash
+sudo ss -tulnp | grep :53
+# Should be empty
+```
+
+![systemd-resolved disabled](images/sprint5/5.11_resolved.png)
+
+### Step 10: Install Samba and Provision Domain
+
+**Install packages:**
 ```bash
 sudo apt install -y acl attr samba samba-dsdb-modules samba-vfs-modules \
   winbind libpam-winbind libnss-winbind libpam-krb5 krb5-config krb5-user \
-  dnsutils ldap-utils
+  dnsutils ldap-utils smbclient
 ```
 
-**Provision the domain:**
+Kerberos configuration prompts:
+- **Default realm:** `CLOUD05.CITY`
+- **Kerberos servers:** `bespin05.cloud05.city`
+- **Admin server:** `bespin05.cloud05.city`
+
+**Stop default services and provision:**
 ```bash
+sudo systemctl disable --now smbd nmbd winbind
+sudo rm -f /etc/samba/smb.conf
 sudo samba-tool domain provision --use-rfc2307 --interactive
-# Realm: LAB05.LAN, Domain: LAB05, DNS: SAMBA_INTERNAL, forwarder: 8.8.8.8
 ```
 
-### Step 9: Join Windows Server to Domain (Exam Day)
+Provisioning answers:
 
-**1. Set DNS on Windows network adapter to point to Ubuntu:**
+| Question | Answer |
+|----------|--------|
+| Realm | CLOUD05.CITY |
+| Domain | CLOUD05 |
+| Server Role | dc |
+| DNS backend | SAMBA_INTERNAL |
+| DNS forwarder | 8.8.8.8 |
+| Administrator password | Admin_21 |
 
-Control Panel → Network and Sharing Center → Change adapter settings → Ethernet → Properties → IPv4
-
-- **Preferred DNS:** `10.0.1.229`
-- **Alternate DNS:** `8.8.8.8`
-
-**2. Join the domain:**
-
-System Properties → Change settings → Change → Domain → `lab05.lan`
-
-Credentials: `Administrator` / `Admin_21` → Restart.
-
-### Step 10: Verify Shared Folders from Windows (Exam Day)
-
-After restarting and logging in with a domain account, open File Explorer and navigate to:
-
+**Start the AD DC service:**
+```bash
+sudo cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+sudo systemctl unmask samba-ad-dc
+sudo systemctl enable samba-ad-dc
+sudo systemctl start samba-ad-dc
+sudo systemctl status samba-ad-dc
 ```
-\\ls05.lab05.lan\Public
-\\10.0.1.229\Public
+
+![Samba AD DC running](images/sprint5/5.13_samba_running.png)
+
+### Step 11: Verify Domain
+
+```bash
+sudo samba-tool domain level show
+host -t A bespin05.cloud05.city 127.0.0.1
+host -t SRV _ldap._tcp.cloud05.city 127.0.0.1
 ```
+
+Expected:
+- Domain level: `(Windows) 2008 R2`
+- A record: resolves to `10.0.1.229`
+- SRV record: points to `bespin05.cloud05.city`
+
+![Domain verification](images/sprint5/5.14_domain_verify.png)
+
+### Step 12: Create Domain Users
+
+```bash
+sudo samba-tool user create lando 'P@ssw0rd2026!' \
+  --given-name=Lando --surname=Calrissian
+sudo samba-tool user create boba 'P@ssw0rd2026!' \
+  --given-name=Boba --surname=Fett
+sudo samba-tool user list
+```
+
+![Users created](images/sprint5/5.15_users.png)
+
+### Step 13: Create Shared Folders with ACLs
+
+**Create directory structure:**
+```bash
+sudo mkdir -p /city/trap
+sudo mkdir -p /city/NP
+```
+
+> Replace `NP` with your initials.
+
+**Set permissions — lando can access trap, boba cannot:**
+```bash
+sudo chown root:"Domain Users" /city
+sudo chmod 755 /city
+
+sudo chown lando:"Domain Users" /city/trap
+sudo chmod 770 /city/trap
+sudo setfacl -m u:lando:rwx /city/trap
+sudo setfacl -m u:boba:--- /city/trap
+```
+
+Verify ACLs:
+```bash
+getfacl /city/trap
+```
+
+Expected output:
+```
+# owner: CLOUD05\lando
+# group: users
+user::rwx
+user:CLOUD05\lando:rwx
+user:CLOUD05\boba:---
+group::rwx
+mask::rwx
+other::---
+```
+
+![ACLs configured](images/sprint5/5.16_acls.png)
+
+### Step 14: Configure Samba Shares
+
+```bash
+sudo nano /etc/samba/smb.conf
+```
+
+Add at the end of the file (after `[netlogon]`):
+```ini
+[city]
+    path = /city
+    read only = No
+    browseable = Yes
+
+[trap]
+    path = /city/trap
+    read only = No
+    valid users = lando
+    invalid users = boba
+    browseable = Yes
+```
+
+Restart Samba:
+```bash
+sudo systemctl restart samba-ad-dc
+```
+
+### Step 15: Join Windows Server to Domain
+
+**1. Set DNS on Windows Server** (via GUI):
+
+Control Panel → Network and Sharing Center → Change adapter settings → Ethernet → Properties → IPv4:
+
+- Leave IP on **"Obtain an IP address automatically"** (AWS DHCP)
+- Set **"Use the following DNS server addresses"**:
+  - Preferred DNS: `10.0.1.229`
+  - Alternate DNS: `8.8.8.8`
+
+![Windows DNS configuration](images/sprint5/5.17_windows_dns.png)
+
+**2. Verify DNS resolution:**
+```powershell
+nslookup cloud05.city
+```
+
+Should return `10.0.1.229`.
+
+**3. Join the domain:**
+```powershell
+Add-Computer -DomainName cloud05.city -Credential CLOUD05\administrator -Restart
+```
+
+Password: `Admin_21`
+
+![Windows domain join](images/sprint5/5.18_domain_join.png)
+
+### Step 16: Verify Domain Join from Windows
+
+After restart, connect via RDP with domain credentials:
+
+**From Linux:**
+```bash
+xfreerdp /v:54.221.100.222 /u:CLOUD05\\administrator /p:Admin_21 /cert:ignore /dynamic-resolution /clipboard
+```
+
+**From Windows:**
+```powershell
+mstsc /v:54.221.100.222 /w:1024 /h:768 /prompt
+```
+
+Login as: `CLOUD05\administrator` / `Admin_21`
+
+Verify:
+```powershell
+whoami
+# Expected: cloud05\administrator
+
+systeminfo | findstr "Domain"
+# Expected: Domain: cloud05.city
+
+nltest /dsgetdc:cloud05.city
+# Expected: DC: \\bespin05.cloud05.city
+```
+
+![Domain join verified](images/sprint5/5.19_join_verify.png)
+
+### Step 17: Verify Shared Folder Permissions from Windows
+
+```powershell
+# lando should succeed
+net use Z: \\10.0.1.229\trap /user:CLOUD05\lando P@ssw0rd2026!
+dir Z:
+net use Z: /delete
+
+# boba should fail with "Access is denied"
+net use Z: \\10.0.1.229\trap /user:CLOUD05\boba P@ssw0rd2026!
+```
+
+![Share permissions verified from Windows](images/sprint5/5.20_share_windows.png)
+
+### Key Differences: On-Premises vs AWS Cloud
+
+| Aspect | On-Premises (VirtualBox) | AWS Cloud (EC2) |
+|--------|--------------------------|-----------------|
+| **Network config** | Manual Netplan (static IPs) | AWS DHCP (do NOT modify Netplan) |
+| **Interfaces** | 2 (Bridge + Internal) | 1 (VPC managed) |
+| **DNS forwarder** | Lab DNS (10.239.3.7) | Public DNS (8.8.8.8) |
+| **Subnets** | Single 192.168.1.0/24 | Multiple (10.0.1.0/24, 10.0.14.0/24) |
+| **Connectivity** | Same L2 broadcast domain | VPC routing between subnets |
+| **Firewall** | Host-based (iptables) | Security Groups |
+| **Remote access** | VirtualBox console | SSH + RDP via Elastic IPs |
+| **IP persistence** | Always (static) | Elastic IPs required |
 
 ### Sprint 5 Summary
 
-| Task | Status |
-|------|--------|
-| Ubuntu Server EC2 launched (LAB05-VPC) | ✅ |
-| Windows Server EC2 launched (LAB05-VPC) | ✅ |
-| LAB05-SG security group configured | ✅ |
-| Elastic IPs assigned (persistent) | ✅ |
-| RDP from local machine to Windows | ✅ |
-| SSH from local machine to Ubuntu | ✅ |
-| Bidirectional connectivity verified | ✅ |
-| Windows password + Spanish keyboard | ✅ |
-| Samba AD installation | ⏳ Exam day |
-| Windows joined to domain | ⏳ Exam day |
-| Shared folders verified from Windows | ⏳ Exam day |
+✅ Ubuntu Server EC2 launched in LAB05-VPC
+✅ Windows Server EC2 launched in LAB05-VPC
+✅ LAB05-SG security group configured
+✅ Elastic IPs assigned (persistent public access)
+✅ Bidirectional connectivity verified
+✅ Samba AD DC provisioned (cloud05.city / CLOUD05)
+✅ Domain users created (lando, boba)
+✅ Shared folders with ACLs (/city/trap)
+✅ Windows Server joined to cloud05.city domain
+✅ Share permissions verified from Windows (lando ✅, boba ❌)
 
 ---
 
