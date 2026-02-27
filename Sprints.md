@@ -1260,10 +1260,7 @@ sudo samba-tool user list
 **Create directory structure:**
 ```bash
 sudo mkdir -p /city/trap
-sudo mkdir -p /city/NP
 ```
-
-> Replace `NP` with your initials.
 
 **Set permissions — lando can access trap, boba cannot:**
 ```bash
